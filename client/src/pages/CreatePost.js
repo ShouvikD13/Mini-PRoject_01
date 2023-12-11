@@ -12,10 +12,10 @@ export default function CreatePost() {
   const [redirect, setRedirect] = useState(false);
   async function createNewPost(ev) {
     const data = new FormData();
-    data.set('title', title);
-    data.set('summary', summary);
-    data.set('content', content);
-    data.set('file', files[0]);
+data.append('title', title);
+data.append('summary', summary);
+data.append('content', content);
+data.append('file', files[0]);
     ev.preventDefault();
     const response = await fetch('http://localhost:4000/post', {
       method: 'POST',

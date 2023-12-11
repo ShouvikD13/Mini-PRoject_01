@@ -17,7 +17,7 @@ const secret = '0h4rj4nV41llyN30P43r50dk3G4nd4ss1M4r1';
 app.use(cors({credentials:true,origin:'http://localhost:3000'}));
 app.use(express.json());
 app.use(cookieParser());
-app.use('/uploads', express.static(__dirname + '/uploads'));
+app.use('/uploads', express.static(__dirname + '/../uploads'));
 
 mongoose.connect('mongodb+srv://blog:team10@cluster0.ecwhyhx.mongodb.net/?retryWrites=true&w=majority');
 
@@ -38,15 +38,12 @@ app.post('/register', async (req,res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     
-    // Find the user by username
     const userDoc = await User.findOne({ username });
   
-    // Check if userDoc is null
     if (!userDoc) {
       return res.status(400).json('User not found');
     }
   
-    // Compare passwords only if userDoc is not null
     const passOk = bcrypt.compareSync(password, userDoc.password);
   
     if (passOk) {
@@ -117,14 +114,19 @@ app.put('/post',uploadMiddleware.single('file'), async (req,res) => {
     if (!isAuthor) {
       return res.status(400).json('you are not the author');
     }
-    await postDoc.update({
-      title,
-      summary,
-      content,
-      cover: newPath ? newPath : postDoc.cover,
-    });
+    await Post.updateOne(
+        { _id: id, author: info.id }, 
+        {
+          $set: {
+            title,
+            summary,
+            content,
+            cover: newPath ? newPath : postDoc.cover,
+          },
+        }
+      );
 
-    res.json(postDoc);
+      res.json({ success: true, message: 'Post updated successfully' });
   });
 
 });
@@ -144,5 +146,40 @@ app.get('/post/:id', async (req, res) => {
   res.json(postDoc);
 })
 
+app.delete('/post/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const { token } = req.cookies;
+  jwt.verify(token, secret, {}, async (err, info) => {
+    if (err) throw err;
+
+    try {
+      const postDoc = await Post.findById(id);
+
+      if (!postDoc) {
+        return res.status(404).json('Post not found');
+      }
+
+      const isAuthor = JSON.stringify(postDoc.author) === JSON.stringify(info.id);
+      if (!isAuthor) {
+        return res.status(403).json('You are not the author of this post');
+      }
+
+      await Post.findByIdAndDelete(id);
+
+      if (postDoc.cover) {
+        fs.unlinkSync(postDoc.cover);
+      }
+
+      res.json({ success: true, message: 'Post deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      res.status(500).json('Internal Server Error');
+    }
+  });
+  app.get('/api/contacts', (req, res) => {
+    res.json(contacts);
+  });
+});
+
 app.listen(4000);
-//'
